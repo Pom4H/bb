@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "listen": {
+    "host": "127.0.0.1",
+    "port": 3070
+  },
+  "publicOrigin": "https://bb.example.com",
+  "upstream": "http://127.0.0.1:38886",
+  "sessionSeconds": 3600,
+  "users": [
+    {
+      "id": "administrator",
+      "roles": [
+        "admin"
+      ],
+      "tokenSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "expiresAt": "2030-01-01T00:00:00Z"
+    },
+    {
+      "id": "finance-user",
+      "roles": [
+        "finance"
+      ],
+      "tokenSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expiresAt": "2030-01-01T00:00:00Z"
+    }
+  ],
+  "rules": [
+    {
+      "effect": "allow",
+      "roles": [
+        "admin"
+      ],
+      "methods": [
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "transport": "http",
+      "path": "/*",
+      "query": "any"
+    },
+    {
+      "effect": "allow",
+      "roles": [
+        "admin"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "transport": "websocket",
+      "path": "/*",
+      "query": "any"
+    },
+    {
+      "effect": "allow",
+      "roles": [
+        "finance"
+      ],
+      "methods": [
+        "GET"
+      ],
+      "transport": "http",
+      "path": "/api/v1/threads/REPLACE_WITH_APPROVED_THREAD_ID"
+    }
+  ]
+}
