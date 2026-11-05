@@ -128,12 +128,28 @@ Use the credential generator to generate a secret and its digest; only its diges
 ## Verification and remaining scope
 
 ```bash
-node --experimental-strip-types --test test/*.test.mjs
-node run.mjs --check config.example.json
+node verify.mjs
 ```
 
 The tests use real ephemeral HTTP servers and TCP WebSocket upgrades, plus a narrow plugin API facade for lifecycle tests. There are no mocked database tests. The extension is intentionally outside the pnpm workspace and does not add root dependencies or change its lockfile.
 
-Verified with Node 22.16.0: 40 tests covering request/path/query denial, header spoofing, cookie login, CSRF, trusted-proxy authentication, credentials stripping, SSE, WebSocket policy, byte relay, expiry/logout/shutdown, invalid config and plugin lifecycle. Full bb installation, monorepo typecheck/build, browser UI integration and Bun compatibility have not been run in this environment. Complete those checks on the pinned bb version before production use.
+Verified on 2026-11-05 with Node 22.16.0: 71 tests covering request/path/query denial, header spoofing, cookie login, CSRF, trusted-proxy authentication, credentials stripping, SSE, WebSocket policy, byte relay, expiry/logout/shutdown, invalid config and plugin lifecycle. Full bb installation, monorepo typecheck/build, browser UI integration and Bun compatibility have not been run in this environment. Complete those checks on the pinned bb version before production use.
 
 This layer does not sandbox full-trust plugins or shell-capable agents, create per-record ownership in bb's database, filter search/list responses, or rewrite workflow/tool permissions. Those checks belong in scoped business services and isolated execution. Access audit records the gateway decision, not successful completion of a downstream action. Persist/export logs using the operator's existing logging infrastructure.
+
+
+## Browser login, audit and deployment checks
+
+Deep links redirect to `/office/login?next=...` and return to the same relative page after login. A replacement login revokes the previous browser session and closes its connections without signing out other devices. Upstream WebSocket 401/403 responses are preserved. API requests remain JSON errors, never HTML login redirects.
+
+The audit callback must be synchronous. A thrown error or returned Promise fails closed; Promise rejections are handled without becoming unhandled rejections. Login cannot issue a cookie after that failure; logout still revokes its session. This is acknowledgement of the local callback, not a guarantee of durable external log delivery. Audit `path` is a bounded route category such as `/api/v1/threads/*`, not the raw request target. Unknown and invalid paths become `/other` and `/invalid-path`. Query strings, arbitrary path segments and request bodies are not logged. Subject identifiers remain in the audit for attribution; apply the operator's retention policy.
+
+On an actual staging installation, store an operator's plaintext access key in a private regular file (0600 on POSIX), then run from this directory:
+
+```bash
+node smoke.mjs https://bb.example.com /absolute/private/path/operator-key
+```
+
+The file contains only the key, not its digest or the generator's explanatory line. The script performs nine GET checks, never follows redirects, never prints credentials or response bodies, verifies JSON shapes and returns nonzero on failure. It requires an operator grant for `/health` and `/api/v1/system/config`; it does not make those routes public. This read-only smoke is not a native mobile, WebSocket, OIDC or row-ACL acceptance suite. Its own seven tests use a controlled fetch fixture; no real bb deployment was exercised in this session.
+
+Official native Direct URL authentication remains pending. Do not expose private APIs or trust an app-surface/User-Agent header to make pairing pass. See [handoff](../../docs/office-access-handoff.md) for the exact native integration points, existing Authentik implementation and acceptance gates.

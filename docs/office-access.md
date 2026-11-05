@@ -7,3 +7,7 @@ It can run as a local-path plugin or an independent Node process. The plugin has
 Expose the gateway, not core. Keep core bound to 127.0.0.1:38886, disable alternate access paths, and use an HTTPS ingress to reach the gateway. Policy configuration is outside agent workspaces and outside Git. Role checks at this boundary do not automatically add row ownership, filter global event streams or sandbox agents/plugins.
 
 See the extension's [operator skill](../extensions/office-access/skills/office-access/SKILL.md) and [tests](../extensions/office-access/test/).
+
+[Follow-up: mobile browser login and reuse assessment](office-access-follow-up.md) documents the corrected login/session behavior, tests and the remaining native-client and per-thread authorization work. This gateway is not a replacement for the Authentik/thread-membership implementation linked there.
+
+[Current handoff and acceptance gates](office-access-handoff.md) contains the latest test results, source reuse plan and remaining production blockers.

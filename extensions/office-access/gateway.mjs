@@ -3,10 +3,11 @@ import http from "node:http";
 import https from "node:https";
 import { canonicalPath, tokenDigest, validateConfig } from "./policy.mjs";
 import { authorize } from "./policy.mjs";
+import { auditMethod, auditPath, writeAudit } from "./audit.mjs";
+import { isDocumentNavigation, isPagePath, loginDestination, loginLocation, renderLogin } from "./login.mjs";
 
 const HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade"]);
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
-const LOGIN = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>bb · Вход</title><main><h1>Вход в bb</h1><p>Введите персональный ключ доступа. Его выдаёт администратор.</p><form><label>Ключ <input name="token" type="password" autocomplete="off" required></label><button>Войти</button></form><p role="status"></p></main><script>document.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();const input=document.querySelector('input');const response=await fetch('/office/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:input.value})});input.value='';if(response.ok)location.replace('/');else document.querySelector('[role=status]').textContent='Вход отклонён. Проверьте ключ или обратитесь к администратору.';});</script></html>`;
 
 class AccessError extends Error {
   constructor(status, code) {
@@ -79,7 +80,7 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
   let closing = false;
 
   function log(request, status, code, auth, kind = "http") {
-    try { audit({ time: new Date().toISOString(), event: "office.access", requestId: randomUUID(), subject: auth?.user.id ?? null, method: request.method, path: String(request.url ?? "/").split("?", 1)[0], transport: kind, status, code }); }
+    try { writeAudit(audit, { time: new Date().toISOString(), event: "office.access", requestId: randomUUID(), subject: auth?.user.id ?? null, method: auditMethod(request.method), path: auditPath(request.url), transport: kind, status, code }); }
     catch { throw new AccessError(503, "audit_unavailable"); }
   }
 
@@ -94,9 +95,11 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
     if (closing) fail(503, "shutting_down");
     if (request.headers.host?.toLowerCase() !== publicUrl.host.toLowerCase()) fail(403, "forbidden_host");
     if (request.headers.origin !== undefined && request.headers.origin !== config.publicOrigin) fail(403, "forbidden_origin");
-    if (request.headers["sec-fetch-site"] === "cross-site") fail(403, "cross_site_request");
-    try { return canonicalPath(request.url); }
+    let path;
+    try { path = canonicalPath(request.url); }
     catch { fail(400, "invalid_path"); }
+    if (request.headers["sec-fetch-site"] === "cross-site" && !(isDocumentNavigation(request) && (isPagePath(path) || path === "/office/login"))) fail(403, "cross_site_request");
+    return path;
   }
 
   function userForToken(token) {
@@ -142,6 +145,20 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
   function json(response, status, value, headers = {}) {
     response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", ...headers });
     response.end(JSON.stringify(value));
+  }
+
+  function revokeSession(key) {
+    if (!key) return;
+    sessions.delete(key);
+    for (const active of [...leases]) if (active.session === key) active.destroy();
+  }
+
+  function redirectToLogin(request, response) {
+    let location;
+    try { location = loginLocation(request.url); }
+    catch { fail(400, "invalid_return_target"); }
+    response.writeHead(303, { location, "cache-control": "no-store", "referrer-policy": "no-referrer" });
+    response.end();
   }
 
   function lease(auth, destroy) {
@@ -192,7 +209,12 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
     });
     outbound.once("response", (incoming) => {
       clearTimeout(wait);
-      if (websocket) { incoming.resume(); socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"); return; }
+      if (websocket) {
+        const status = [401, 403].includes(incoming.statusCode) ? incoming.statusCode : 502;
+        incoming.resume();
+        socket.end(`HTTP/1.1 ${status} ${http.STATUS_CODES[status]}\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n`);
+        return;
+      }
       response.writeHead(incoming.statusCode ?? 502, responseHeaders(incoming.headers, cookieName));
       incoming.once("error", destroy);
       incoming.once("aborted", destroy);
@@ -225,30 +247,39 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
     let auth;
     try {
       const path = checkRequest(request);
-      if (path === "/office/login" && request.method === "GET" && !request.url.includes("?")) {
+      if (path === "/office/login" && request.method === "GET") {
+        let next;
+        try { next = loginDestination(request.url); }
+        catch { fail(400, "invalid_return_target"); }
         const nonce = randomBytes(24).toString("base64url");
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "content-security-policy": `default-src 'none'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, "x-content-type-options": "nosniff" });
-        response.end(LOGIN.replace("<script>", `<script nonce="${nonce}">`));
+        response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer", "content-security-policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, "x-content-type-options": "nosniff" });
+        response.end(renderLogin(nonce, next));
+        return;
+      }
+      if (request.headers["sec-fetch-site"] === "cross-site" && isDocumentNavigation(request) && isPagePath(path)) {
+        log(request, 303, "login_required", null);
+        redirectToLogin(request, response);
         return;
       }
       if (path === "/office/login" && request.method === "POST" && !request.url.includes("?")) {
         if (request.headers.origin !== config.publicOrigin) fail(403, "origin_required");
         const body = await readJson(request);
         const user = userForToken(body?.token);
-        for (const [key, session] of sessions) if (session.expiresAt <= Date.now()) sessions.delete(key);
-        const owned = [...sessions.entries()].filter(([, session]) => session.userId === user.id);
-        while (owned.length >= 8) {
-          const [key] = owned.shift();
-          sessions.delete(key);
-          for (const active of [...leases]) if (active.session === key) active.destroy();
-        }
-        if (sessions.size >= 10000) fail(503, "session_capacity");
+        const previousCookie = cookieValue(request.headers.cookie, cookieName);
+        const previousSession = previousCookie ? tokenDigest(previousCookie) : null;
+        const now = Date.now();
+        const expired = [...sessions.entries()].filter(([, session]) => session.expiresAt <= now).map(([key]) => key);
+        const retained = [...sessions.entries()].filter(([key, session]) => key !== previousSession && session.expiresAt > now);
+        const owned = retained.filter(([, session]) => session.userId === user.id);
+        const evicted = owned.slice(0, Math.max(0, owned.length - 7)).map(([key]) => key);
+        if (retained.length - evicted.length >= 10000) fail(503, "session_capacity");
         const token = randomBytes(32).toString("base64url");
-        const expiresAt = Math.min(user.expiresAt, Date.now() + config.sessionSeconds * 1000);
-        sessions.set(tokenDigest(token), { userId: user.id, expiresAt });
+        const expiresAt = Math.min(user.expiresAt, now + config.sessionSeconds * 1000);
         auth = { user };
-        json(response, 200, { ok: true }, { "set-cookie": cookie(token, Math.max(1, Math.floor((expiresAt - Date.now()) / 1000))) });
         log(request, 200, "login", auth);
+        for (const key of [...expired, ...evicted, previousSession]) revokeSession(key);
+        sessions.set(tokenDigest(token), { userId: user.id, expiresAt });
+        json(response, 200, { ok: true }, { "set-cookie": cookie(token, Math.max(1, Math.floor((expiresAt - now) / 1000))) });
         return;
       }
       auth = authenticate(request);
@@ -258,12 +289,9 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
       }
       if (path === "/office/logout" && request.method === "POST" && !request.url.includes("?")) {
         if (request.headers.origin !== config.publicOrigin) fail(403, "origin_required");
-        if (auth.session) {
-          sessions.delete(auth.session);
-          for (const active of [...leases]) if (active.session === auth.session) active.destroy();
-        }
-        json(response, 200, { ok: true }, { "set-cookie": cookie("", 0) });
+        revokeSession(auth.session);
         log(request, 200, "logout", auth);
+        json(response, 200, { ok: true }, { "set-cookie": cookie("", 0) });
         return;
       }
       if (path === "/office" || path.startsWith("/office/")) fail(404, "not_found");
@@ -274,12 +302,12 @@ export function createAccessGateway(rawConfig, { audit = () => {} } = {}) {
       const status = error instanceof AccessError ? error.status : 500;
       const code = error instanceof AccessError ? error.code : "access_gateway_error";
       try { log(request, status, code, auth); } catch {}
-      if (status === 401 && request.method === "GET" && request.url === "/" && request.headers.accept?.includes("text/html")) {
-        response.writeHead(303, { location: "/office/login", "cache-control": "no-store" });
-        response.end();
+      if (status === 401 && isDocumentNavigation(request) && isPagePath(canonicalPath(request.url))) {
+        try { redirectToLogin(request, response); }
+        catch { json(response, 400, { code: "invalid_return_target" }); }
         return;
       }
-      if (!response.headersSent) json(response, status, { code });
+      if (!response.headersSent) json(response, status, { code }, status === 401 ? { "www-authenticate": 'Bearer realm="bb-office"' } : {});
       else response.destroy();
       request.resume();
     }
