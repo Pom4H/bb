@@ -1,0 +1,138 @@
+{
+  "date": "2026-11-05",
+  "repository": "Pom4H/bb",
+  "pr": 1,
+  "branch": "feat/office-access-gateway",
+  "originalHead": "da45153b4280f6558355aefceb86cd7fa7b67b08",
+  "base": "fa30b0a7dcdf745f7baf8e41721f754b7d3198fe",
+  "verification": {
+    "node": "v22.16.0",
+    "platform": "linux",
+    "baseline": {
+      "passed": 40,
+      "failed": 0
+    },
+    "previousFollowup": {
+      "passed": 56,
+      "failed": 0
+    },
+    "auditRegressionBeforeFix": {
+      "passed": 60,
+      "failed": 4
+    },
+    "final": {
+      "passed": 71,
+      "failed": 0
+    },
+    "command": "node extensions/office-access/verify.mjs",
+    "scope": "partial checkout; fixture HTTP/TCP; plugin and DOM facades; controlled-fetch smoke tests",
+    "notRun": [
+      "full bb plugin install",
+      "monorepo Turbo build/typecheck/test",
+      "Authentik",
+      "native iOS/Android",
+      "real staging smoke",
+      "Bun"
+    ]
+  },
+  "reuse": {
+    "repo": "entin-hun/bb",
+    "head": "286da1a21e91008b8e89a79cce4d50dc1da11561",
+    "upstreamParent": "3540a699e29034b53da32bb7efa6f5b4055209eb",
+    "mergeCommit": true,
+    "filesChanged": 53,
+    "aheadBy": 6
+  },
+  "files": [
+    {
+      "path": "extensions/office-access/README.md",
+      "sha256": "fed4dd06b293860e8258b41290ea90d3f38c6a997597765e63b541a4bf8558a3",
+      "gitBlob": "5559cf6725aec327b0d91992195e181e9e39234b"
+    },
+    {
+      "path": "extensions/office-access/audit.mjs",
+      "sha256": "0d7f46e84f8f8cbc5ea8510b8aef1dfa28468769cad9973bbcf12d56e78772ff",
+      "gitBlob": "f44a75831f7c1f76318946388ab7d48aad185ba9"
+    },
+    {
+      "path": "extensions/office-access/config.example.json",
+      "sha256": "91579348f22573debd6f3f796700477663e653e60fc6634588bb2bc166ea5395",
+      "gitBlob": "2332ae8e43f1f4341f341629ce943c382a72ca52"
+    },
+    {
+      "path": "extensions/office-access/credential.mjs",
+      "sha256": "eb2ada829f23559f750512cfdaefae0d8ce3d408c1f4dfe64f45cd5b08604537",
+      "gitBlob": "52172b777682610c7c45ce4f0aeb6330292451db"
+    },
+    {
+      "path": "extensions/office-access/gateway.d.mts",
+      "sha256": "2eabb286a2dec51517c1f33c106108aee91b41a1f670f3f8763693b3c2c0dccc",
+      "gitBlob": "3a6d47f11440c24c60988edc453efbaf532dc32c"
+    },
+    {
+      "path": "extensions/office-access/gateway.mjs",
+      "sha256": "7c926b57ff3209dcbd87c85ec76b2989ffdd74c9f17950b83c0cada4c9a90595",
+      "gitBlob": "180c7ab1478c0d4af2e5f9ea0192ca6768cf50a6"
+    },
+    {
+      "path": "extensions/office-access/login.mjs",
+      "sha256": "72cf11c3073149da551d95a2d43b4775911ae2c0d15e63c384119e3a5816577e",
+      "gitBlob": "0287de5e9526f63ca8a1b071bc5446e2e05a08de"
+    },
+    {
+      "path": "extensions/office-access/package.json",
+      "sha256": "7d7ef1ebde98f917af090c07fa876ad5a9e30afa725c930adf51f9fa2746ad0b",
+      "gitBlob": "e89288f97fd1dc8cb598cbda53915d4400aba485"
+    },
+    {
+      "path": "extensions/office-access/policy.mjs",
+      "sha256": "e1fbddf2ac94cac6fbdba1196ad64beccd72895d878ce734b5dd6d78c0d084ad",
+      "gitBlob": "6e2201ca4d1b253fd621a320e3c67a8cb11c1533"
+    },
+    {
+      "path": "extensions/office-access/run.mjs",
+      "sha256": "f51d5644f227b9ecf536a22f8da148d090fdeea5b52bc1109398ce6dfd63ec5c",
+      "gitBlob": "782ddf60ef1cd38aba505b6978cf13d0f2f0e065"
+    },
+    {
+      "path": "extensions/office-access/server.ts",
+      "sha256": "9b23a3f38b4dba235e36c6d6f46336fd002677ec784bb8f9a0f4a23fbf4ea58a",
+      "gitBlob": "04f98a42950f6b5a1aae6c86b56ccf583fb4ddbb"
+    },
+    {
+      "path": "extensions/office-access/skills/office-access/SKILL.md",
+      "sha256": "22b6bb48ec17745cef7cdf1c70c2583e0a5ba6bf5c785ca09866f1bf3c1c67ed",
+      "gitBlob": "10a5551a037c0c14e260da3921b940c2e3128c67"
+    },
+    {
+      "path": "extensions/office-access/smoke.mjs",
+      "sha256": "12401d494f213108c62327f929054253f9f3a64b075540282127d7997da398fa",
+      "gitBlob": "89b8361e32fc2cd1443d6582ee5ffd4e4b336b7e"
+    },
+    {
+      "path": "extensions/office-access/test/access.test.mjs",
+      "sha256": "a8fa7d6bc2f634051c96745c394d4d74c6ccac0cc713abf6753ff71fbdf839b7",
+      "gitBlob": "5eea3f93a3d1686ac8d17b3a582e6548cc730324"
+    },
+    {
+      "path": "extensions/office-access/test/login-ui.test.mjs",
+      "sha256": "05561af24a8fbb1bc4bbad2e5dded11bd33305c3b09761633d9134b89653a3eb",
+      "gitBlob": "cce55197a9302d850a0418ed94e05cc2ddf2cbbc"
+    },
+    {
+      "path": "extensions/office-access/test/plugin.test.mjs",
+      "sha256": "d705e673ebc90a176683f7b263c707a87a3874877bab7f7eecfc9d28b529220f",
+      "gitBlob": "a3e82af0dc84e15d1b7209b8639850e47efe3008"
+    },
+    {
+      "path": "extensions/office-access/test/smoke.test.mjs",
+      "sha256": "04260f3e910a336c770c6d9a89cdfe79f6f1d1834d8896266ff93c5a516aed33",
+      "gitBlob": "f5ccf3f404714e155ba30b97bd34f26df99a79c7"
+    },
+    {
+      "path": "extensions/office-access/verify.mjs",
+      "sha256": "1e85b1b4d411e7749079523fb427ca0fa8762eb5b46da07e028ce4e55bd792ca",
+      "gitBlob": "2b38faa23d78b7def5739c8a5c8b16d34f01e48c"
+    }
+  ]
+}
